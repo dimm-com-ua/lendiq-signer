@@ -62,7 +62,6 @@ public class LendiqSigner {
             System.out.println("Can't start. Missing required parameters");
         }
 
-        // Загрузка PFX-файла
         File pfxFile = new File(pfxPath);
         if (!pfxFile.exists() || !pfxFile.isFile()) {
             System.out.println("PFX file not found: " + pfxPath);
@@ -82,7 +81,6 @@ public class LendiqSigner {
             }
         }
 
-        // Проверка файла для подписи
         File inputFile = new File(inputFilePath);
         if (!inputFile.exists() || !inputFile.isFile()) {
             System.out.println("Input file not found: " + inputFilePath);
