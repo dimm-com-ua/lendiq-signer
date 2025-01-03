@@ -1,6 +1,6 @@
 # Lendiq Signer CLI
 
-**Lendiq Signer** is a command-line application for signing documents using the CAdES-BASELINE-LT and ASiC-E signature formats. It leverages the [DSS library](https://ec.europa.eu/digital-building-blocks/DSS) for creating secure, legally valid digital signatures.
+**Lendiq Signer** is a command-line application for signing documents using the CAdES-BASELINE-LT and ASiC-E signature formats. It leverages the [DSS library](https://ec.europa.eu/digital-building-blocks/sites/display/DIGITAL/Digital+Signature+Service+-++DSS) for creating secure, legally valid digital signatures.
 
 ## Features
 
@@ -18,7 +18,7 @@
 ### Dependencies
 
 - Java 11 or higher
-- DSS library ([Documentation and downloads](https://ec.europa.eu/digital-building-blocks/DSS))
+- DSS library ([Documentation and downloads](https://ec.europa.eu/digital-building-blocks/sites/display/DIGITAL/Digital+Signature+Service+-++DSS))
 
 ### Input Requirements
 
