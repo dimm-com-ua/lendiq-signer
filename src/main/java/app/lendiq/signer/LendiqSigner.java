@@ -1,6 +1,5 @@
 package app.lendiq.signer;
 
-import eu.europa.esig.dss.alert.LogOnStatusAlert;
 import eu.europa.esig.dss.asic.cades.ASiCWithCAdESSignatureParameters;
 import eu.europa.esig.dss.asic.cades.signature.ASiCWithCAdESService;
 import eu.europa.esig.dss.enumerations.ASiCContainerType;
@@ -18,7 +17,7 @@ import eu.europa.esig.dss.service.http.commons.CommonsDataLoader;
 import eu.europa.esig.dss.service.http.commons.OCSPDataLoader;
 import eu.europa.esig.dss.service.ocsp.OnlineOCSPSource;
 import eu.europa.esig.dss.service.tsp.OnlineTSPSource;
-import eu.europa.esig.dss.spi.client.http.Protocol;
+import eu.europa.esig.dss.spi.x509.CommonTrustedCertificateSource;
 import eu.europa.esig.dss.token.DSSPrivateKeyEntry;
 import eu.europa.esig.dss.token.Pkcs12SignatureToken;
 import eu.europa.esig.dss.validation.CommonCertificateVerifier;
@@ -33,7 +32,7 @@ import java.util.List;
 public class LendiqSigner {
     public static void main(String[] args)  {
         if(args.length < 3) {
-            System.out.println("Usage: java jar lendiq-signer.jar --key <PFX_FILE> --password <PASSWORD> --cert <CERT> --file <FILE_PATH>");
+            System.out.println("Usage: java jar lendiq-signer.jar --key <PFX_FILE> --password <PASSWORD> --cert <CERT> --file <FILE_PATH> --trusted_dir <TRUSTED_DIR>");
             System.exit(1);
         }
         System.setProperty("org.apache.logging.log4j.level", "DEBUG");
@@ -44,6 +43,7 @@ public class LendiqSigner {
         String inputFilePath = null;
         String certPath = null;
         String outFilePath = null;
+        String trustedDir = null;
 
         for(int i = 0; i < args.length; i++) {
             if(args[i].equals("--key")) {
@@ -55,6 +55,8 @@ public class LendiqSigner {
                 outFilePath = inputFilePath + ".asice";
             } else if(args[i].equals("--cert")) {
                 certPath = args[++i];
+            } else if(args[i].equals("--trusted_dir")) {
+                trustedDir = args[++i];
             }
         }
 
@@ -129,10 +131,10 @@ public class LendiqSigner {
             }
             parametersASiC.setSignatureLevel(SignatureLevel.CAdES_BASELINE_LT);
             parametersASiC.setDigestAlgorithm(DigestAlgorithm.SHA256);
-            parametersASiC.setSignaturePackaging(SignaturePackaging.ENVELOPING);
+            parametersASiC.setSignaturePackaging(SignaturePackaging.ENVELOPED);
             parametersASiC.aSiC().setContainerType(ASiCContainerType.ASiC_E);
 
-            ASiCWithCAdESService service = getASiCWithCAdESService();
+            ASiCWithCAdESService service = getASiCWithCAdESService(trustedDir);
 
             ToBeSigned dataToSign = service.getDataToSign(documentToSign, parametersASiC);
 
@@ -153,14 +155,29 @@ public class LendiqSigner {
         }
     }
 
-    private static ASiCWithCAdESService getASiCWithCAdESService() {
+    private static ASiCWithCAdESService getASiCWithCAdESService(String trustedDir) {
         CommonCertificateVerifier commonCertificateVerifier = new CommonCertificateVerifier();
-        commonCertificateVerifier.setCheckRevocationForUntrustedChains(false);
+//        commonCertificateVerifier.setCheckRevocationForUntrustedChains(false);
+
+        if(trustedDir != null) {
+            File trustedDirFile = new File(trustedDir);
+            if(trustedDirFile.isDirectory()) {
+                CommonTrustedCertificateSource trustedCertificateSource = new CommonTrustedCertificateSource();
+                for(File file: trustedDirFile.listFiles()) {
+                    if(file.isFile() && file.getName().endsWith(".cer")) {
+                        try (InputStream inStream = new FileInputStream(file)) {
+                            CertificateFactory cf = CertificateFactory.getInstance("X.509");
+                            X509Certificate cert = (X509Certificate) cf.generateCertificate(inStream);
+                            CertificateToken certificateToken = new CertificateToken(cert);
+                            trustedCertificateSource.addCertificate(certificateToken);
+                        } catch (Exception ignored) {}
+                    }
+                }
+                commonCertificateVerifier.setTrustedCertSources(trustedCertificateSource);
+            }
+        }
 
         ASiCWithCAdESService service = new ASiCWithCAdESService(commonCertificateVerifier);
-
-        commonCertificateVerifier.setAlertOnRevokedCertificate(new LogOnStatusAlert());
-        commonCertificateVerifier.setAlertOnMissingRevocationData(new LogOnStatusAlert());
 
         OnlineOCSPSource onlineOCSPSource = new OnlineOCSPSource();
         onlineOCSPSource.setDataLoader(new OCSPDataLoader());
@@ -169,8 +186,9 @@ public class LendiqSigner {
 
         OnlineCRLSource onlineCRLSource = new OnlineCRLSource();
         onlineCRLSource.setDataLoader(new CommonsDataLoader());
-        onlineCRLSource.setPreferredProtocol(Protocol.FTP);
         commonCertificateVerifier.setCrlSource(onlineCRLSource);
+
+        commonCertificateVerifier.setRevocationFallback(true);
 
         String tspServer = "http://ca.diia.gov.ua/services/tsp/ecdsa/";
         OnlineTSPSource onlineTSPSource = new OnlineTSPSource(tspServer);
